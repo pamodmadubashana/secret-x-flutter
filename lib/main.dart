@@ -84,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Widget build(BuildContext context) {
     FlutterNativeSplash.remove();
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 246, 122, 100),
+      backgroundColor: const Color.fromARGB(255, 8, 8, 8),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
