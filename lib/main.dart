@@ -1,15 +1,32 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/material.dart';
-import 'package:gif/gif.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'dart:async';
 
+// import 'package:device_preview/device_preview.dart';
+// import 'package:flutter/cupertino.dart';
+// import 'package:flutter/material.dart';
+
+// import 'basic.dart';
+// import 'custom_plugin.dart';
+
+// void main() {
+//   runApp(
+//     DevicePreview(
+//       enabled: true,
+//       tools: const [
+//         ...DevicePreview.defaultTools
+//       ],
+//       builder: (context) => const MyApp(),
+//     ),
+//   );
+// }
+
+
 void main() {
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -24,7 +41,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const SplashScreen(), // Start with splash screen
+      home: const VpnHomePage(),
       builder: (context, child) {
         return MediaQuery(
           // ignore: deprecated_member_use
@@ -36,96 +53,16 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Add the Splash Screen
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
-
-  @override
-  _SplashScreenState createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late GifController controller;
-  bool isLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Initialize the GIF controller
-    controller = GifController(vsync: this);
-    
-    // Add a delay to show the splash screen for some time
-    Timer(const Duration(milliseconds: 300), () {
-      controller.repeat(
-        min: 0,
-        max: 100,
-        period: const Duration(milliseconds: 1000),
-      );
-    });
-    
-    // Navigate to main screen after delay
-    Timer(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const VpnHomePage(),
-        ),
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    FlutterNativeSplash.remove();
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 8, 8, 8),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.wifi, // Or use your custom icon
-              size: 80,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 20),
-            
-            const Text(
-              "Secret X",
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Loading indicator
-            const SizedBox(
-              width: 150,
-              child: LinearProgressIndicator(
-                backgroundColor: Colors.white30,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// CustomPainter for cloud shapes and VpnHomePage classes remain the same
+// Optimized CustomPainter with caching
 class CloudPainter extends CustomPainter {
+  final double opacity;
+  
+  CloudPainter({this.opacity = 0.8});
+  
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = Colors.white.withOpacity(opacity)
       ..style = PaintingStyle.fill;
     
     final path = Path();
@@ -161,17 +98,18 @@ class CloudPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant CloudPainter oldDelegate) => 
+    oldDelegate.opacity != opacity;
 }
 
 // Cloud data class
 class Cloud {
-  late double x;
-  late double y;
-  late double size;
-  late double baseSpeed;
-  late double currentSpeed;
-  late double opacity;
+  double x;
+  double y;
+  double size;
+  double baseSpeed;
+  double currentSpeed;
+  double opacity;
   
   Cloud({
     required this.x, 
@@ -179,7 +117,7 @@ class Cloud {
     required this.size, 
     required this.baseSpeed, 
     required this.opacity
-    }) : currentSpeed = baseSpeed;
+  }) : currentSpeed = baseSpeed;
 }
 
 class VpnHomePage extends StatefulWidget {
@@ -189,7 +127,7 @@ class VpnHomePage extends StatefulWidget {
   _VpnHomePageState createState() => _VpnHomePageState();
 }
 
-class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin  {
+class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin {
   bool isConnected = false;
   bool isConnecting = false;
   bool hasCredentials = false;
@@ -200,8 +138,14 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   late AnimationController _colorAnimationController;
   late Animation<Color?> _backgroundColor1Animation;
   late Animation<Color?> _backgroundColor2Animation;
+  
+  // Using fewer clouds and fewer repaints
   late List<Cloud> clouds;
   final _random = math.Random();
+  Timer? _cloudAnimationTimer;
+  
+  // Cached UI properties
+  late final Size _screenSize;
   
   @override
   void initState() {
@@ -217,7 +161,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 500),
     );
   
-    // Initialize color animations properly
+    // Initialize color animations
     _backgroundColor1Animation = ColorTween(
       begin: _getStaticBackgroundColor1(),
       end: _getStaticBackgroundColor1(),
@@ -228,16 +172,18 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
       end: _getStaticBackgroundColor2(),
     ).animate(_colorAnimationController);
     
-    // Initialize clouds
-    clouds = List.generate(15, (_) => _generateCloud());
+    // Fewer clouds (8 instead of 15)
+    clouds = List.generate(12, (_) => _generateCloud());
     
-    // Start cloud animation
+    // Load credentials and start animations
     _loadCredentials();
-    _startCloudAnimation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _screenSize = MediaQuery.of(context).size;
+      _startCloudAnimation();
+    });
   }
 
   void _updateColorAnimations() {
-    // Create new animation with current color as begin and target color as end
     _backgroundColor1Animation = ColorTween(
       begin: _backgroundColor1Animation.value ?? _getStaticBackgroundColor1(),
       end: _getStaticBackgroundColor1(),
@@ -248,7 +194,6 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
       end: _getStaticBackgroundColor2(),
     ).animate(_colorAnimationController);
     
-    // Reset and run the animation
     _colorAnimationController.reset();
     _colorAnimationController.forward();
   }
@@ -261,14 +206,15 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     return _backgroundColor2Animation.value ?? _getStaticBackgroundColor2();
   }
 
-  // Add this method to load saved credentials
   Future<void> _loadCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      username = prefs.getString('username') ?? "";
-      password = prefs.getString('password') ?? "";
-      hasCredentials = username.isNotEmpty && password.isNotEmpty;
-    });
+    if (mounted) {
+      setState(() {
+        username = prefs.getString('username') ?? "";
+        password = prefs.getString('password') ?? "";
+        hasCredentials = username.isNotEmpty && password.isNotEmpty;
+      });
+    }
   }
 
   Future<void> _saveCredentials(String user, String pass) async {
@@ -279,30 +225,31 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   
   Cloud _generateCloud() {
     return Cloud(
-      x: _random.nextDouble() * 2 - 0.5, // Start slightly off-screen
+      x: _random.nextDouble() * 2 - 0.5,
       y: _random.nextDouble(),
-      size: _random.nextDouble() * 0.3 + 0.1, // Size between 0.1 and 0.4
-      baseSpeed: _random.nextDouble()  * 0.001 + 0.0005, // Speed between 0.0005 and 0.0015
-      opacity: _random.nextDouble() * 0.4 + 0.1, // Opacity between 0.1 and 0.5
+      size: _random.nextDouble() * 0.3 + 0.1,
+      baseSpeed: _random.nextDouble() * 0.001 + 0.0005,
+      opacity: _random.nextDouble() * 0.4 + 0.1,
     );
   }
   
   void _startCloudAnimation() {
-    Future.delayed(const Duration(milliseconds: 16), () { // ~60fps
+    // Cancel any existing timer
+    _cloudAnimationTimer?.cancel();
+    
+    // Use Timer instead of recursive Future.delayed for better performance
+    _cloudAnimationTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
       if (mounted) {
         setState(() {
           for (var cloud in clouds) {
-            // Move clouds horizontally with increased speed
-            cloud.x += cloud.currentSpeed * 3; // Additional multiplier for extra speed
+            cloud.x += cloud.currentSpeed * 3;
             
-            // Reset cloud when it goes off-screen
             if (cloud.x > 1.5) {
               cloud.x = -0.5 - _random.nextDouble();
               cloud.y = _random.nextDouble() * 0.8;
             }
           }
         });
-        _startCloudAnimation();
       }
     });
   }
@@ -310,7 +257,6 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   void _accelerateClouds() {
     setState(() {
       for (var cloud in clouds) {
-        // Multiply base speed by a factor (e.g., 5x faster when connected)
         cloud.currentSpeed = cloud.baseSpeed * 5;
       }
     });
@@ -319,7 +265,6 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   void _decelerateClouds() {
     setState(() {
       for (var cloud in clouds) {
-        // Return to base speed
         cloud.currentSpeed = cloud.baseSpeed;
       }
     });
@@ -329,6 +274,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   void dispose() {
     _animationController.dispose();
     _colorAnimationController.dispose();
+    _cloudAnimationTimer?.cancel();
     super.dispose();
   }
 
@@ -341,18 +287,17 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     setState(() {
       isConnecting = true;
     });
-    // Update colors immediately after state change
     _updateColorAnimations();
     
-    // Simulate connection process
     Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        isConnecting = false;
-        isConnected = true;
-      });
-      // Update colors immediately after state change
-      _updateColorAnimations();
-      _accelerateClouds();
+      if (mounted) {
+        setState(() {
+          isConnecting = false;
+          isConnected = true;
+        });
+        _updateColorAnimations();
+        _accelerateClouds();
+      }
     });
   }
   
@@ -360,18 +305,17 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     setState(() {
       isConnecting = true;
     });
-    // Update colors immediately after state change
     _updateColorAnimations();
     
-    // Simulate disconnection process
     Future.delayed(const Duration(seconds: 1), () {
-      setState(() {
-        isConnecting = false;
-        isConnected = false;
-      });
-      // Update colors immediately after state change
-      _updateColorAnimations();
-      _decelerateClouds();
+      if (mounted) {
+        setState(() {
+          isConnecting = false;
+          isConnected = false;
+        });
+        _updateColorAnimations();
+        _decelerateClouds();
+      }
     });
   }
   
@@ -381,81 +325,84 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     
     showDialog(
       context: context,
-      // Prevent dialog from being dismissed when tapping outside
       barrierDismissible: false,
       builder: (context) => Center(
         child: Material(
           color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.85,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Enter Your Account Credentials",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: "Username",
-                    border: OutlineInputBorder(),
-                  ),
-                  controller: TextEditingController(text: username),
-                  onChanged: (value) {
-                    tempUsername = value;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: "Password",
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  onChanged: (value) {
-                    tempPassword = value;
-                  },
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Cancel"),
+          child: SingleChildScrollView(  // Added SingleChildScrollView here
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Enter Your Account Credentials",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: () async {
-                      if (tempUsername.isNotEmpty && tempPassword.isNotEmpty) {
-                        await _saveCredentials(tempUsername, tempPassword);
-                        setState(() {
-                          username = tempUsername;
-                          password = tempPassword;
-                          hasCredentials = true;
-                        });
-                        Navigator.pop(context);
-                          _connect();
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: "Username",
+                      border: OutlineInputBorder(),
+                    ),
+                    controller: TextEditingController(text: username),
+                    onChanged: (value) {
+                      tempUsername = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: "Password",
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                    onChanged: (value) {
+                      tempPassword = value;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text("Cancel"),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () async {
+                        if (tempUsername.isNotEmpty && tempPassword.isNotEmpty) {
+                          await _saveCredentials(tempUsername, tempPassword);
+                          if (mounted) {
+                            setState(() {
+                              username = tempUsername;
+                              password = tempPassword;
+                              hasCredentials = true;
+                            });
+                            Navigator.pop(context);
+                            _connect();
+                          }
                         }
                       },
                       child: const Text("OK"),
-                    ),
-                  ],
-                ),
-              ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -467,11 +414,13 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
     await prefs.remove('password');
-    setState(() {
-      username = "";
-      password = "";
-      hasCredentials = false;
-    });
+    if (mounted) {
+      setState(() {
+        username = "";
+        password = "";
+        hasCredentials = false;
+      });
+    }
   }
   
   Color _getStaticBackgroundColor1() {
@@ -494,14 +443,66 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     }
   }
 
+  // We separate the clouds builder to avoid rebuilding the entire widget tree
+  List<Widget> _buildCloudWidgets(Size screenSize) {
+    return clouds.map((cloud) {
+      return Positioned(
+        left: screenSize.width * cloud.x,
+        top: screenSize.height * cloud.y,
+        child: Opacity(
+          opacity: cloud.opacity,
+          child: Transform.scale(
+            scale: 1 + (cloud.size * 0.5),
+            child: RepaintBoundary(
+              child: CustomPaint(
+                size: Size(
+                  screenSize.width * cloud.size,
+                  screenSize.width * cloud.size * 0.6,
+                ),
+                painter: CloudPainter(opacity: cloud.opacity),
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  // Pre-build the animated circles for better performance
+  List<Widget> _buildAnimatedCircles() {
+    return List.generate(3, (index) {
+      return AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          final double size = 150.0 + (index * 40.0);
+          final double offset = index * 0.2;
+          final double value = ((_animationController.value + offset) % 1.0);
+          final double opacity = (1.0 - value) * 0.6;
+          
+          return Container(
+            width: size * value * 1.5,
+            height: size * value * 1.5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color.fromARGB(255, 66, 65, 65).withOpacity(opacity),
+            ),
+          );
+        },
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Use resizeToAvoidBottomInset to prevent keyboard from causing layout shifts
+    final Size screenSize = MediaQuery.of(context).size;
+    final double bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+    
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      // Change this line from false to true
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Layer 1 (Bottom): Animated Background
+          // Background Gradient
           AnimatedBuilder(
             animation: Listenable.merge([_animationController, _colorAnimationController]),
             builder: (context, child) {
@@ -522,67 +523,34 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
             },
           ),
           
-          // Cloud Animations
-          ...clouds.map((cloud) {
-              return Positioned(
-                left: MediaQuery.of(context).size.width * cloud.x,
-                top: MediaQuery.of(context).size.height * cloud.y,
-                child: Opacity(
-                  opacity: cloud.opacity,
-                  child: Transform.scale(
-                    scale: 1 + (cloud.size * 0.5), // Larger clouds appear closer
-                    child: CustomPaint(
-                      size: Size(
-                        MediaQuery.of(context).size.width * cloud.size,
-                        MediaQuery.of(context).size.width * cloud.size * 0.6,
-                      ),
-                      painter: CloudPainter(),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-                      
-          // Layer 2: Connection Button
-          Positioned.fill(
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Animated Circles
-                  ...List.generate(3, (index) {
-                    return AnimatedBuilder(
-                      animation: _animationController,
-                      builder: (context, child) {
-                        final double size = 150.0 + (index * 40.0);
-                        final double offset = index * 0.2;
-                        final double value = ((_animationController.value + offset) % 1.0);
-                        final double opacity = (1.0 - value) * 0.6;
-                        
-                        return Container(
-                          width: size * value * 1.5,
-                          height: size * value * 1.5,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color.fromARGB(255, 66, 65, 65).withOpacity(opacity),
-                          ),
-                        );
-                      },
-                    );
-                  }),
-                  
-                  // Connection Button
-                  GestureDetector(
+          // Cloud Animations with RepaintBoundary
+          RepaintBoundary(
+            child: Stack(
+              children: _buildCloudWidgets(screenSize),
+            ),
+          ),
+          
+          // Center Button
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Animated Circles
+                ..._buildAnimatedCircles(),
+                
+                // Connection Button with RepaintBoundary
+                RepaintBoundary(
+                  child: GestureDetector(
                     onTap: isConnecting ? null : (isConnected ? _disconnect : _connect),
                     child: Container(
                       width: 130,
                       height: 130,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isConnected ? const Color.fromARGB(255, 28, 68, 29): const Color.fromARGB(255, 88, 25, 20) ,
+                        color: isConnected ? const Color.fromARGB(255, 17, 100, 20): const Color.fromARGB(255, 114, 19, 13),
                         boxShadow: [
                           BoxShadow(
-                            color: (isConnected ? const Color.fromARGB(255, 124, 179, 126):  const Color.fromARGB(255, 240, 130, 122)).withOpacity(0.1),
+                            color: (isConnected ? const Color.fromARGB(255, 124, 179, 126) : const Color.fromARGB(255, 240, 130, 122)).withOpacity(0.1),
                             blurRadius: 20,
                             spreadRadius: 5,
                           ),
@@ -591,166 +559,195 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                       child: Center(
                         child: isConnecting
                             ? const CircularProgressIndicator(
-                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white)
-                            )         
-                            : Icon(
-                                isConnected ? Icons.power_settings_new : Icons.power_settings_new,
-                                size: 50,
-                                color: isConnected ? const Color.fromARGB(255, 129, 127, 127) : const Color.fromARGB(255, 80, 82, 80),
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              )
+                            : Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Glow effect
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: isConnected 
+                                              ? const Color.fromARGB(255, 44, 163, 44).withOpacity(0.7)
+                                              : const Color.fromARGB(255, 224, 71, 71).withOpacity(0.7),
+                                          spreadRadius: 5,
+                                          blurRadius: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // The actual icon
+                                  Icon(
+                                    Icons.power_settings_new,
+                                    size: 50,
+                                    color: isConnected 
+                                        ? const Color.fromARGB(255, 44, 163, 44) 
+                                        : const Color.fromARGB(255, 224, 71, 71),
+                                  ),
+                                ],
                               ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           
-          // Layer 3 (Top): App UI (Header and Connection Card)
+          // Header with BlurFilter
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top,
-                    left: 20,
-                    right: 20,
-                    bottom: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 71, 71, 71).withOpacity(0.4),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 1,
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top,
+                      left: 20,
+                      right: 20,
+                      bottom: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 71, 71, 71).withOpacity(0.4),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Secret X",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"),
-                          style: const TextStyle(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Secret X",
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                    ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           
-          // Connection Info Card at bottom
-          Positioned(
-          bottom: 20,
-          left: 20,
-          right: 20,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                    width: 1,
+          // Bottom Info Card with BlurFilter - Modified to handle keyboard
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            bottom: 10 + bottomPadding,  // Add bottomPadding here to adjust position
+            left: 20,
+            right: 20,
+            child: RepaintBoundary(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Account",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              hasCredentials ? username : "Not set",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Status",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            Text(
+                              "Server",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              "Default Server",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Account",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          hasCredentials ? username : "Not set",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Status",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          isConnected ? "Connected" : (isConnecting ? "Connecting..." : "Disconnected"),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Server",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Text(
-                          "Default Server",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
               ),
             ),
           ),
-        ),
         ],
       ),
     );
