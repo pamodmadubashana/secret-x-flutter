@@ -123,7 +123,7 @@ class AnimatedCircles extends StatelessWidget {
             final double size = 150.0 + (index * 60.0);
             final double offset = index * 0.2;
             final double value = ((controller.value + offset) % 1.0);
-            final double opacity = (1.0 - value) * 0.4;
+            final double opacity = (1.0 - value) * 0.2;
             
             return Transform.scale(
               scale: value * 1.5,
@@ -346,6 +346,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     
     // Define a theme color variable for easy editing
     Color theme_color = const Color.fromARGB(255, 176, 177, 179); // You can change this to any color you want
+    Color inputTextColor = const Color.fromARGB(255, 159, 161, 161);
     
     // Create controllers for the text fields
     final TextEditingController usernameController = TextEditingController(text: username);
@@ -357,8 +358,8 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
       barrierDismissible: false,
       builder: (BuildContext context) {
         // Get the available screen height
-        final double screenHeight = MediaQuery.of(context).size.height;
-        final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        // final double screenHeight = MediaQuery.of(context).size.height;
+        // final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
         
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -376,7 +377,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.5), // Reduced opacity for the base color
+                        color: const Color.fromARGB(255, 209, 79, 79).withOpacity(0.5), // Reduced opacity for the base color
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -399,13 +400,15 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
-                                "Enter Your Account Credentials",
+                                "Please Log In",
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
+                            
                                   color: theme_color,
                                   letterSpacing: 0.5,
                                 ),
@@ -415,7 +418,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                 controller: usernameController,
                                 decoration: InputDecoration(
                                   labelText: "Username",
-                                  labelStyle: TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
+                                  labelStyle: TextStyle(color: const Color.fromARGB(221, 255, 255, 255), fontWeight: FontWeight.w500),
                                   prefixIcon: Icon(Icons.person, color: theme_color),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -430,10 +433,14 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                     borderSide: BorderSide(color: theme_color, width: 2),
                                   ),
                                   filled: true,
-                                  fillColor: Colors.white.withOpacity(0.85),
+                                  fillColor: Colors.white.withOpacity(0.05),
                                   contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                                 ),
-                                style: TextStyle(fontSize: 16),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: inputTextColor, // Set the color of typed text
+                                  fontWeight: FontWeight.w500, // Optional: make text slightly bolder
+                                ),
                                 onChanged: (value) {
                                   tempUsername = value;
                                 },
@@ -447,7 +454,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                 controller: passwordController,
                                 decoration: InputDecoration(
                                   labelText: "Password",
-                                  labelStyle: TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
+                                  labelStyle: TextStyle(color: const Color.fromARGB(221, 255, 255, 255), fontWeight: FontWeight.w500),
                                   prefixIcon: Icon(Icons.lock, color: theme_color),
                                   suffixIcon: IconButton(
                                     icon: Icon(
@@ -473,10 +480,14 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                     borderSide: BorderSide(color: theme_color, width: 2),
                                   ),
                                   filled: true,
-                                  fillColor: Colors.white.withOpacity(0.85),
+                                  fillColor: Colors.white.withOpacity(0.05),
                                   contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                                 ),
-                                style: TextStyle(fontSize: 16),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: inputTextColor, // Set the color of typed text
+                                  fontWeight: FontWeight.w500, // Optional: make text slightly bolder
+                                ),
                                 obscureText: !passwordVisible,
                                 onChanged: (value) {
                                   tempPassword = value;
@@ -677,12 +688,18 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                 children: _buildCloudWidgets(screenSize),
               ),
             ),
-            
+            if (!keyboardVisible)
+                      Positioned.fill(
+                        child: IgnorePointer( // Make sure circles don't interfere with button taps
+                          child: AnimatedCircles(controller: _animationController),
+                        ),
+                      ),
             // Center Button - Adjusted position when keyboard is visible
+
             AnimatedPositioned(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              top: screenSize.height * 0.4,
+              top: (screenSize.height - 130) * 0.5,
               left: 0,
               right: 0,
               child: Center(
@@ -701,7 +718,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             // Add a specific color for disconnecting state
-                            color: isConnecting || isDisconnecting? const Color.fromARGB(255, 207, 159, 0) 
+                            color: isConnecting || isDisconnecting? const Color.fromARGB(255, 207, 163, 16) 
                             :(isConnected 
                                 ? const Color.fromARGB(255, 17, 100, 20) 
                                 : const Color.fromARGB(255, 114, 19, 13)), 
@@ -758,12 +775,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                     ),
                     
                     // Animated Circles - Now in a separate widget with absolute positioning
-                    if (!keyboardVisible)
-                      Positioned.fill(
-                        child: IgnorePointer( // Make sure circles don't interfere with button taps
-                          child: AnimatedCircles(controller: _animationController),
-                        ),
-                      ),
+                    
                   ],
                 ),
               ),
@@ -838,9 +850,12 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
               // Properly adjust position based on keyboard and safe area
-              bottom: keyboardVisible 
-                 ? bottomPadding + 10
-                 : safeBottomPadding + 10,
+              // bottom: keyboardVisible 
+              //    ? safeBottomPadding - 200
+              //    : safeBottomPadding + 20,
+
+              bottom: safeBottomPadding + 20,
+              // bottom: 20,
               left: 20,
               right: 20,
               child: RepaintBoundary(
