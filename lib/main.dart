@@ -701,24 +701,19 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             // Add a specific color for disconnecting state
-                            color: isConnecting 
-                                ? const Color.fromARGB(255, 207, 159, 0)  // Yellow/amber color for connecting
-                                : (isDisconnecting
-                                    ? const Color.fromARGB(255, 207, 159, 0)   // Blue for disconnecting
-                                    : (isConnected 
-                                        ? const Color.fromARGB(255, 17, 100, 20)  // Green for connected
-                                        : const Color.fromARGB(255, 114, 19, 13))), // Red for disconnected
+                            color: isConnecting || isDisconnecting? const Color.fromARGB(255, 207, 159, 0) 
+                            :(isConnected 
+                                ? const Color.fromARGB(255, 17, 100, 20) 
+                                : const Color.fromARGB(255, 114, 19, 13)), 
+
                             boxShadow: [
                               BoxShadow(
                                 // Also update the shadow color for disconnecting state
-                                color: (isConnecting
-                                    ? const Color.fromARGB(255, 245, 215, 66)  // Yellow/amber glow
-                                    : (isDisconnecting
-                                        ? const Color.fromARGB(255, 245, 215, 66) // Blue glow
+                                color: (isConnecting || isDisconnecting ? const Color.fromARGB(255, 245, 215, 66) 
                                         : (isConnected 
                                             ? const Color.fromARGB(255, 124, 179, 126)  // Green glow
                                             : const Color.fromARGB(255, 240, 130, 122))  // Red glow
-                                        )).withOpacity(0.3),
+                                        ).withOpacity(0.3),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               ),
