@@ -586,10 +586,8 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   Color _getStaticBackgroundColor1() {
     if (isConnected) {
       return Colors.green.shade300;
-    } else if (isConnecting) {
-      return const Color(0xFFFFA726); // Amber 400
-    } else if (isDisconnecting) {
-      return const Color(0xFF90CAF9); // Blue 200 for disconnecting state
+    } else if (isConnecting || isDisconnecting) {
+      return const Color(0xFFFFA726);
     } else {
       return const Color.fromARGB(255, 246, 122, 100); // Default red
     }
@@ -598,10 +596,8 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   Color _getStaticBackgroundColor2() {
     if (isConnected) {
       return Colors.lightGreen.shade500;
-    } else if (isConnecting) {
+    } else if (isConnecting || isDisconnecting) {
       return const Color(0xFFFB8C00); // Orange 600
-    } else if (isDisconnecting) {
-      return const Color(0xFF1976D2); // Blue 700 for disconnecting state
     } else {
       return const Color.fromARGB(255, 244, 39, 3); // Default dark red
     }
@@ -708,7 +704,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                             color: isConnecting 
                                 ? const Color.fromARGB(255, 207, 159, 0)  // Yellow/amber color for connecting
                                 : (isDisconnecting
-                                    ? const Color.fromARGB(255, 30, 136, 229)  // Blue for disconnecting
+                                    ? const Color.fromARGB(255, 207, 159, 0)   // Blue for disconnecting
                                     : (isConnected 
                                         ? const Color.fromARGB(255, 17, 100, 20)  // Green for connected
                                         : const Color.fromARGB(255, 114, 19, 13))), // Red for disconnected
@@ -718,7 +714,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                 color: (isConnecting
                                     ? const Color.fromARGB(255, 245, 215, 66)  // Yellow/amber glow
                                     : (isDisconnecting
-                                        ? const Color.fromARGB(255, 100, 181, 246)  // Blue glow
+                                        ? const Color.fromARGB(255, 245, 215, 66) // Blue glow
                                         : (isConnected 
                                             ? const Color.fromARGB(255, 124, 179, 126)  // Green glow
                                             : const Color.fromARGB(255, 240, 130, 122))  // Red glow
