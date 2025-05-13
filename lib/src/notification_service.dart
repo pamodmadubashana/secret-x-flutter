@@ -20,6 +20,8 @@ class NotificationService {
   // Uptime tracking
   Timer? _uptimeTimer;
   Duration _uptime = Duration.zero;
+  Duration _savedUptime = Duration.zero; 
+  bool _isConnected = false;
 
   Function? _disconnectCallback;
   
@@ -142,7 +144,8 @@ class NotificationService {
   // Show the connected notification
   Future<void> showConnectedNotification({String? serverName}) async {
     // Reset uptime
-    _uptime = Duration.zero;
+    // _uptime = Duration.zero;
+    _isConnected = true;
     
     // Check permissions
     bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
@@ -154,14 +157,12 @@ class NotificationService {
       }
     }
     
-    final String serverText = serverName != null ? ' to $serverName' : '';
-    
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: connectedNotificationId,
         channelKey: vpnStatusChannel,
-        title: 'Secret X VPN',
-        body: 'Connected$serverText - Uptime: ${_formatDuration(_uptime)}',
+        title: 'Secret X',
+        body: 'Connected - Uptime: ${_formatDuration(_uptime)}',
         notificationLayout: NotificationLayout.Default,
         category: NotificationCategory.Service,
         locked: true, // Keep notification persistent
@@ -187,13 +188,14 @@ class NotificationService {
   
   // Update notification with current uptime
   void updateUptimeNotification({String? serverName}) {
+    if (!_isConnected) return;
     final String serverText = serverName != null ? ' to $serverName' : '';
     
     AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: connectedNotificationId,
         channelKey: vpnStatusChannel,
-        title: 'Secret X VPN',
+        title: 'Secret X',
         body: 'Connected$serverText - Uptime: ${_formatDuration(_uptime)}',
         notificationLayout: NotificationLayout.Default,
         category: NotificationCategory.Service,
@@ -223,8 +225,8 @@ class NotificationService {
       content: NotificationContent(
         id: connectedNotificationId + 1, // Use a different ID
         channelKey: vpnStatusChannel,
-        title: 'Secret X VPN',
-        body: 'Disconnected - VPN session ended',
+        title: 'Secret X',
+        body: 'Disconnected',
         notificationLayout: NotificationLayout.Default,
         category: NotificationCategory.Service,
         autoDismissible: true, // Can be dismissed by user
@@ -239,6 +241,9 @@ class NotificationService {
   
   // Remove the notification when disconnected
   Future<void> removeConnectedNotification() async {
+    _savedUptime += _uptime;
+    // _uptime = Duration.zero;
+    _isConnected = false;
     await AwesomeNotifications().cancel(connectedNotificationId);
     stopUptimeTimer();
   }
