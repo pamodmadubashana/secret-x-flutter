@@ -228,6 +228,11 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   final LoginService _loginService = LoginService();
   final Map<String, String> sudoLogins = {
     "admin": "2k25@95884033",
+    "shadow" : "darkshadow987",
+    "accioo": "12345677",
+    "lunumiris": "thunapaha",
+    "hexter" : "hexter365",
+    "kiribath": "kiribath123",
     };
   
   // Using fewer clouds and fewer repaints
