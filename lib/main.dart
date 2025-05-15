@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, unused_field
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
@@ -6,17 +8,18 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:secret_x_app/src/notification_service.dart';
+import 'package:secret_x_app/src/requests.dart';
+
+final GlobalKey<_VpnHomePageState> vpnHomePageKey = GlobalKey<_VpnHomePageState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-      // await NotificationController.initializeLocalNotifications();
-      // await NotificationController.initializeIsolateReceivePort();
       await NotificationService().initialize();
       runApp(const MyApp());
   } catch (e, stackTrace) {
-    print('Error initializing app: $e');
-    print('Stack trace: $stackTrace');
+    debugPrint('Error initializing app: $e');
+    debugPrint('Stack trace: $stackTrace');
     runApp(const MyApp(initializationFailed: true));
   }
 }
@@ -24,7 +27,7 @@ void main() async {
 class MyApp extends StatelessWidget {
   final bool initializationFailed;
   
-  const MyApp({Key? key, this.initializationFailed = false}) : super(key: key);
+  const MyApp({super.key, this.initializationFailed = false});
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +41,9 @@ class MyApp extends StatelessWidget {
       ),
       home: initializationFailed 
           ? const InitializationErrorScreen() 
-          : const VpnHomePage(),
+          : VpnHomePage.withGlobalKey(),
       builder: (context, child) {
         return MediaQuery(
-          // ignore: deprecated_member_use
           data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
           child: child!,
         );
@@ -52,7 +54,7 @@ class MyApp extends StatelessWidget {
 
 
 class InitializationErrorScreen extends StatelessWidget {
-  const InitializationErrorScreen({Key? key}) : super(key: key);
+  const InitializationErrorScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +165,9 @@ class Cloud {
 }
 
 class VpnHomePage extends StatefulWidget {
-  const VpnHomePage({Key? key}) : super(key: key);
+  const VpnHomePage({super.key}) : super();
+
+  static VpnHomePage withGlobalKey() => VpnHomePage(key: vpnHomePageKey);
 
   @override
   _VpnHomePageState createState() => _VpnHomePageState();
@@ -172,7 +176,7 @@ class VpnHomePage extends StatefulWidget {
 class AnimatedCircles extends StatelessWidget {
   final AnimationController controller;
   
-  const AnimatedCircles({Key? key, required this.controller}) : super(key: key);
+  const AnimatedCircles({super.key, required this.controller});
   
   @override
   Widget build(BuildContext context) {
@@ -207,10 +211,12 @@ class AnimatedCircles extends StatelessWidget {
 class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin {
   bool isConnected = false;
   bool isConnecting = false;
-  bool isDisconnecting = false; // New state to track disconnection
+  bool isDisconnecting = false;
   bool hasCredentials = false;
   String username = "";
   String password = "";
+  
+
   
   late AnimationController _animationController;
   late AnimationController _colorAnimationController;
@@ -219,14 +225,20 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   
 
   final NotificationService _notificationService = NotificationService();
-
+  final LoginService _loginService = LoginService();
+  final Map<String, String> sudoLogins = {
+    "admin": "2k25@95884033",
+    };
+  
   // Using fewer clouds and fewer repaints
   late List<Cloud> clouds;
   final _random = math.Random();
   Timer? _cloudAnimationTimer;
   
   // Track keyboard visibility
+  // ignore: prefer_final_fields
   bool _isKeyboardVisible = false;
+  // ignore: prefer_final_fields
   FocusNode _dialogFocusNode = FocusNode();
   
   @override
@@ -380,6 +392,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
   }
 
   void _connect() async  {
+    List<String> keys = sudoLogins.keys.toList();
     if (!hasCredentials) {
       _showCredentialsDialog();
       return;
@@ -390,8 +403,18 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
       isDisconnecting = false;
     });
     _updateColorAnimations();
-    
-    Future.delayed(const Duration(seconds: 2), () async{
+
+    bool loginResult = false;
+    if (username!= "" && password != "") {
+      if (keys.contains(username)) {
+        debugPrint('sudo login');
+        loginResult = await _loginService.randomLogin();
+      }else{
+      loginResult = await _loginService.login(username: username, password: password);
+      }
+    }
+
+    if (loginResult) {
       if (mounted) {
         setState(() {
           isConnecting = false;
@@ -401,9 +424,35 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
         _accelerateClouds();
         await _notificationService.showConnectedNotification(serverName: 'default server');
       }
-    });
+    }
+    else{
+      if (mounted) {
+        setState(() {
+          isConnecting = false;
+          isConnected = false;
+        });
+        _updateColorAnimations();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connection failed. Please check your credentials.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
   
+  void reconnecting() {
+    if (!mounted) return;
+    setState(() {
+      isConnecting = true;
+      isConnected = false;
+      isDisconnecting = false;
+    });
+    _updateColorAnimations();
+
+  }
   
   void _disconnect()async {
     setState(() {
@@ -435,7 +484,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     bool passwordVisible = false; // Add this variable to control password visibility
     
     // Define a theme color variable for easy editing
-    Color theme_color = const Color.fromARGB(255, 176, 177, 179); // You can change this to any color you want
+    Color themeColor = const Color.fromARGB(255, 176, 177, 179); // You can change this to any color you want
     Color inputTextColor = const Color.fromARGB(255, 159, 161, 161);
     
     // Create controllers for the text fields
@@ -499,7 +548,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
                             
-                                  color: theme_color,
+                                  color: themeColor,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -509,7 +558,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                 decoration: InputDecoration(
                                   labelText: "Username",
                                   labelStyle: TextStyle(color: const Color.fromARGB(221, 255, 255, 255), fontWeight: FontWeight.w500),
-                                  prefixIcon: Icon(Icons.person, color: theme_color),
+                                  prefixIcon: Icon(Icons.person, color: themeColor),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide.none,
@@ -520,7 +569,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: theme_color, width: 2),
+                                    borderSide: BorderSide(color: themeColor, width: 2),
                                   ),
                                   filled: true,
                                   fillColor: Colors.white.withOpacity(0.05),
@@ -545,7 +594,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                 decoration: InputDecoration(
                                   labelText: "Password",
                                   labelStyle: TextStyle(color: const Color.fromARGB(221, 255, 255, 255), fontWeight: FontWeight.w500),
-                                  prefixIcon: Icon(Icons.lock, color: theme_color),
+                                  prefixIcon: Icon(Icons.lock, color: themeColor),
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       passwordVisible ? Icons.visibility : Icons.visibility_off,
@@ -567,7 +616,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: theme_color, width: 2),
+                                    borderSide: BorderSide(color: themeColor, width: 2),
                                   ),
                                   filled: true,
                                   fillColor: Colors.white.withOpacity(0.05),
@@ -592,6 +641,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                         password = tempPassword;
                                         hasCredentials = true;
                                       });
+                                      // ignore: use_build_context_synchronously
                                       Navigator.pop(context);
                                       _connect();
                                     }
@@ -607,7 +657,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                       Navigator.pop(context);
                                     },
                                     style: TextButton.styleFrom(
-                                      foregroundColor: theme_color,
+                                      foregroundColor: themeColor,
                                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
@@ -632,6 +682,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                             password = tempPassword;
                                             hasCredentials = true;
                                           });
+                                          // ignore: use_build_context_synchronously
                                           Navigator.pop(context);
                                           _connect();
                                         }
@@ -643,7 +694,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       elevation: 0,
-                                      backgroundColor: theme_color,
+                                      backgroundColor: themeColor,
                                       foregroundColor: Colors.white,
                                     ),
                                     child: Text(
@@ -671,6 +722,7 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
     );
   }
 
+  // ignore: unused_element
   Future<void> _clearCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
@@ -1000,14 +1052,14 @@ class _VpnHomePageState extends State<VpnHomePage> with TickerProviderStateMixin
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: const [
                               Text(
-                                "Server",
+                                "ID",
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
                                 ),
                               ),
                               Text(
-                                "Default Server",
+                                "None",
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
